@@ -1,0 +1,230 @@
+---
+title: "Modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(knitr)
+```
+
+### Load data
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+* * *
+
+## Part 1: Data
+
+This dataset contains infomations concerning movies drawn from IMDB and Rotten Tomatoes. It consists of a random sampling of 651 movies with available 32 variables. Not all the variables are needed for statistical analysis and thus non relevant variables should be excluded for clarity in the modeling such as the links to the movie on IMDB and Rotten Tomatoes. As a result of using random sampling, the dataset also employs random selection and thus can be generalized to the population of movies prior to 2016. However, this dataset does not utlize any form of random assignment and thus cannot be used for the purposes of determining causality. 
+
+
+* * *
+
+## Part 2: Research question
+
+Can variables known prior to the theater releases of movies such as type of movie, genre, runtime, release month, critical reception and MPAAA rating serve as good predictors of that movie's audience reception?
+
+For many studios, understanding what factors make a movies better received by audiences in advance would allow them to make more standout movies that appeal to the general public. Which in turn would likely increase the chances of financial success and stability thus allowing stuios to continue making movies. 
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+In the dataset, there is a total of 651 movies. The following analysis will breakdown the categories and releases that these movies fall into via charts and plots. 
+
+```{r}
+movie1 <- movies %>% select(title_type, genre, runtime, mpaa_rating, imdb_rating, thtr_rel_month,  
+                           critics_score, audience_score, best_pic_win, best_actor_win, best_actress_win,
+                           best_dir_win, top200_box)
+```
+
+There are 3 types of movies in the dataset consisting of TV Movies, documentaries and Feature Films. TV movies are generally not shown in movie theatres so for the purposes of this model, they will be removed. In addition, Unrated and NC-17 movies are also not shown in theaters so these will be removed as well.
+
+```{r}
+movie1 <- movie1 %>% filter(!(title_type %in% c("TV Movie"))) %>%
+           filter(!(mpaa_rating %in% c("NC-17", "Unrated")))
+
+movie1$thtr_rel_month <- as.factor(movie1$thtr_rel_month)
+summary(movie1)
+```
+
+In each category, most movies in the dataset are feature films. Most movies are Dramas at 291 movies which is far greater than the next largest genre category, Comedy at 87 movies. The median runtime is 103 minutes for all these films and the mean is 106.1 minutes. Because the median is less than the mean, it indicates that the data in this variable is right skewed. Most movies in the dataset are Rated R. The median rating on IMDB is 6.5 while the mean is 6.4, indicating a slight left skew. The highest number of movies per month release either in June or in December corresponding with the Summer and the Winter holidays in the US. The Critical score median is 59 and the mean is 55.4 which also indicates a left skew. The Audience score mean is 61 while the median is 63 thus indicating a slight left skew as well. As expected most pictures do not win awards, most actors, actresses and directors do not win awards and most movies do not make the top 200 at the box office. 
+
+```{r}
+ggplot(data = movie1, aes(x = thtr_rel_month)) + geom_bar(fill = "Red") + xlab("Months With Movies")
+summary(movie1$thtr_rel_month)
+```
+
+The month with the most movies is December and June. The month with the least number of movies is February. 
+
+```{r}
+ggplot(data = movie1, aes(x = runtime)) + geom_histogram(binwidth=10, fill = "Red") + xlab("Length of Movies")
+```
+
+The mean Runtime of the dataset is 106.1 minutes and there are outliers of 202 minutes. We can also see the slight right skew in the data. The interquartile range is 93 to 116 minutes. 
+
+```{r}
+ggplot(data = movie1, aes(x = critics_score)) + geom_histogram(binwidth=10, fill = "Red") + xlab("Critical Score of Movies")
+```
+
+The Critical score median is 59 and the mean is 55.4 and thus we can see the slight left skew. The interquartile range is 45 to 78. 
+
+```{r}
+ggplot(data = movie1, aes(x = mpaa_rating)) + geom_bar(fill = "Red") + xlab("MPAA Rating of Movies")
+```
+
+Most Movies are Rated R (326) in the dataset with the next highest group being PG-13(133). The smallest group is G (19). 
+
+```{r}
+ggplot(data = movie1, aes(x = genre)) + geom_bar(fill = "Red") + xlab("Genre of Movies") +theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0))
+```
+
+Dramas are the most common type of movie genre with comedy second. Documentary and Horror are the least common genres in the dataset. 
+
+* * *
+
+## Part 4: Modeling
+
+```{r}
+# Helper function for adding correlation coeficient values to a pairwise plot
+# (taken from pairs() help page).
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- abs(cor(x, y))
+    txt <- format(c(r, 0.123456789), digits = digits)[1]
+    txt <- paste0(prefix, txt)
+    if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+    text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+
+# Create pairwise plots of the movie rating scores to test for collinearity.
+# Using the helper function above, the linear correlation R value is included
+# on the chart.
+pairs(~ imdb_rating + critics_score + audience_score, 
+      data=movies, lower.panel=panel.smooth, upper.panel=panel.cor)
+```
+
+For this mulitple linear regression model we will be considering the explanatory variables, genre, title_type, runtime, mpaa_rating, critics_score, best_dir_win, best_actress win, best_actor_win and thtr_rel_month in order to explain the response variable audience_score. We are not using the IMDB score because it mixes the audience and critical scores together which is not what we are trying to examine. We also exclude the box office reception variable top200_box since we are looking for information that is generally released prior to the movie being shown to the general audience in addition to the urls we excluded earlier. 
+
+Explanatory Variables:
+
+* genre
+* title_type
+* runtime
+* mpaa_rating
+* critics_score
+* best_dir_win
+* best_actress win
+* best_actor_win
+* thtr_rel_month
+
+Response Variable: Audience Score
+
+The model selection method is backwards elimination using R Squared. The reason is that the goal of this multiple linear regression to create a model with good predictive power even if the individual variables are not statistically significant. 
+
+The full model is as follows:
+
+```{r}
+model <- lm(audience_score ~ genre + runtime + mpaa_rating + thtr_rel_month + 
+              best_actor_win + best_actress_win + best_dir_win + title_type + critics_score, data=movie1)
+
+summary(model)
+anova(model)
+```
+
+The Adjusted R Squared of the full model is 0.4928, indicating some room for increase as the model does not explain all the variance in the response variable as it stands currently. Thus we must continue to remove variables in order to get the final parsimonious model with the highest adjusted R-squared value. 
+
+```{r}
+finModel <- lm(audience_score ~ genre + runtime +   
+              critics_score, data=movie1)
+summary(finModel)
+anova(finModel)
+```
+
+The Adjusted R Squared of the final model is 0.5026 and has three variables down from the intial 9 in the full model. All of the variables in the final model are statistically significant. These variables are genre, runtime and critics_score. The overall p-value of the model is close to 0 thus the null hypothesis that one of of the model coefficients is 0 in favor of the alternative that at least one model coefficient is not 0 and thus the corresponding explanatory variable has a relationship with response variable. The most statistically significant variables are the critics_score and the genre of Action Adventure. Movie runtime and critics_score appear to generally have positive impacts on the eventual audience score. In the case of runtime, it is unknown if there is an upper limit to the length of of movie. For genre, it appears to vary quite a bit and most genres appear to be statistically insignificant. Though, the statistically significant genres of Action & Adventure (the base value) Musical and Performing arts and Documentary are generally positively impacting (the the latter two seeing increases in around 10 points) while the genre of Horror is seemingly negative in its impact on audience scores (around a 7 point decrease on Rotten Tomatoes). 
+
+
+### Model Diagnostics
+
+First we check for Linear relationships between each numerical explanatory variable and the response variable
+
+```{r}
+plot(finModel$residuals~movie1$runtime,xlab="Runtime", ylab="Residuals",main= "Residuals vs. Runtime")
+plot(finModel$residuals~movie1$critics_score,xlab="Critics Scores", ylab="Residuals",main= "Residuals vs. Critical Scores")
+```
+
+In both the runtime and critics_scores plots, there appears to be a random scatter of residuals around 0. Thus indicating a linear relationship between both variables and the response variable.
+
+Next we check for nearly normal residuals with mean 0
+
+```{r}
+hist(finModel$residuals, main = "Normal Probability Plot of Residuals")
+qqnorm(finModel$residuals, main = "Normal Probability Plot of Residuals") 
+qqline(finModel$residuals)
+```
+
+According to the histogram, we do see a very normal distribution of residuals though there is some skew to the right. On the normal probability plot, we also see a mostly normal distribution but ends of the graph tend to stray off more and more, particularly on the right end of the plot. 
+
+Next we check for the constant variability of residuals
+
+```{r}
+plot(finModel$residuals~finModel$fitted, main ="Plot of Fitted vs Residuals")
+```
+
+The residuals appear to be generally homoscedastic. Though, there appear to be some level of heteroscedasticity towards the right end of the plot. Ths indicates that the model may not be quite as accurate toward the end of higher fitted values. 
+
+Lastly, we check for independent residuals
+
+```{r}
+plot(finModel$residuals, main = "Plot of Residuals by Order")
+```
+
+According to this plot by order of submission, there appears to be no impact of a time series shown. This is because the scatter is random and no pattern can properly be discerned. 
+
+On the whole, the model appears to pass the diagnostic and be valid. 
+
+* * *
+
+## Part 5: Prediction
+
+We now test the model by attempting to predict the score of movies within 2016. The 2016 movies selected are 10 Cloverfield Lane and X-Men Apocalypse. The movies released in March and May respectively. Movies released earlier in the year have more time to mature in the minds of the audience which make them more ideal targets for examining audience reactions to them. The information was obtained from the Rotten Tomatoes website to be in line with the audience and critical score variables in the model which were also taken from that site. The information we are taking from the website are the genre, runtime and critics_score. 
+
+```{r}
+data1 <- data.frame(genre="Drama", runtime= 90, critics_score= 75.0)
+pred1 <- predict(finModel, data1, interval="predict")
+
+data2 <- data.frame(genre="Action & Adventure", runtime=136, critics_score= 57.0)
+pred2 <- predict(finModel, data2, interval="predict")
+
+df <- data.frame(t=c("10 Cloverfield Lane", "X-Men Apocalypse"),
+                 p=c(sprintf("%2.1f", pred1[1]), 
+                     sprintf("%2.1f", pred2[1])),
+                 i=c(sprintf("%2.1f - %2.1f", pred1[2], pred1[3]), 
+                     sprintf("%2.1f - %2.1f", pred2[2], pred2[3])),
+                 r=c("76.0", "72.0"))
+kable(df, col.names=c("Movie Title", "Predicted Audience Rating", "95% Prediction Interval", "Actual Audience Rating"))
+
+```
+
+The Actual Audience rating for both movies were higher than the predicted audience rating and by a decent score of around 7 to 8 points. With a 95% confidence interval, we are 95% confident that the actual value would fall into this interval. These prediction intervals for both movies are particularly wide, meaning that the model is not precise in its prediction capacity. This prediction test demonstrates the flaws of the model created as according to the R Squared value, only 50.26% of the variance within the response variable is explained as the model stand currently.
+
+* * *
+
+## Part 6: Conclusion
+
+To answer the research question, audience scores and reactions can be predicted from a basic known set of data from the movie prior to its full release in theaters but not perfectly. Some outside factors about the movie's creation are seemingly influential to the audience's eventual reaction such as the scores of the critics while other like runtime and genre could be directly controlled by studios. This multiple linear regression model was proven to have some level of predictive capacity even if does not predict with precision. To improve on this model, one can find other variables to add to the model in order to increase the adjusted R Squared value which as it stands can only explain little more than half of the variance in the response variable. The usage of a simple random sample also presents issues in how the data represents the actual population of movies. Thus, utilizing some stratification in sampling to reflect the actual population of movies would improve the model's ability in general.
