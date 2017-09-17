@@ -1,0 +1,187 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+* * *
+
+## Part 1: Data
+
+The General Social Survey (GSS) is a sociological survey created to keep a record of issues, activities and concerns of the residents in the United States. Since 1994, the survey was conducted every even numbered year. The target of the survey is the population of 18+ year old non-institutionalized adults living in households in the country who are either English speaking and/or Spanish speaking (since 2006).Full probability sampling was employed in all surveys beginning from 1977. The 1972-74 surveys used a modified probability design.
+
+Data in the GSS is obtained via a personal interview survey and collects information on a broad range of topics such as happiness level and spending up to around 5080 variables overall. A few interviews however are completed through telephone due to the unavilability for an in person interview. Participation in the survey is voluntary. However, the GSS has a response rate of around 70% which is notably greater than that of other social science surveys. To limit the cost of the survey, non-respondents are subsampled while maintaining an accurate representation of the nation. Only a couple thousand individuals are interviewed in each survey. The survey is weighted so as to give each person in a given selected household an equal opportunity of being selected for an interview. However, due to survey non-response, sampling variation, and other factors, the GSS sample does deviate from known population figures for some variables. The GSS does not calculate any post-stratification weights to adjust for such differences. Thus it is important to keep this information in mind when drawing inferences from particular variables as they may not be appropriately precise. 
+
+As the survey uses probability sampling, it applies random selection during the process of selecting interviewees and obtaining household samples. Thus, the data can be generalized to the population as a whole. However, the study is observational, not experimental. Thus, the study does not utlize any form of random assignment and therefore cannot be used to draw causality between variables. 
+
+
+* * *
+
+## Part 2: Research question
+
+Variables from Codebook: 
+
+* sex: Respondent's sex
+* fear: Afraid to walk at night in neighborhood
+
+Question:
+
+In the year 2012, were women of 18+ years more likely to be afraid to walk at night in their neighborhood compared to men?
+
+Reasoning:
+
+Violence against women is a great general concern and the freedom of women in society can notably be constrained by fear if they are afraid to walk around their own neighborhood which can generally be assumed to be a normally familiar location. By identifying that this fear is indeed prominent compared to males, programs can be better supported to enable the safety of women and ease concerns about their actions which furthers solving the issue of violence as a whole abd thus enabling women to express their freedoms more readily.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+First, we filter out the data according to the year 2012 for the selected variables. 
+
+* sex: Respondent's sex
+* fear: Afraid to walk at night in neighborhood
+
+```{r}
+data <- filter(gss, year == 2012) %>%
+  select(sex,fear)
+```
+
+Examining the types of Variables that are being worked with:
+
+```{r}
+str(data)
+```
+The Sex Variable has 2 levels and the Fear variable has two levels as well.
+
+Examining which sex and which answer to the fear variable has the most responses:
+
+```{r}
+data %>%
+  group_by(sex) %>%
+  summarise (n = n()) %>%
+  mutate(freq = n / sum(n))
+```
+More females participated in this survey than males. In 2012, there were 1974 respondents for the question.
+
+Now we plot the data for the variable fear:
+
+```{r}
+ggplot(data, aes(x=fear)) + geom_bar() + ggtitle('Fear of Walking Around the Neighborhood at Night') + xlab('Yes or No to Fearing Walking at Night') + theme_bw()
+
+data %>%
+  group_by(fear) %>%
+  summarise (n = n()) %>%
+  mutate(freq = n / sum(n))
+```
+
+The plot shows that most of the people surveyed do not suffer from a fear of walking in their neighborhood (43.3%) in comparison to those who do(22.5%). However, over 30% of responders chose not to answer this question. We should remove these non-responders for a new distribution.
+
+```{r}
+data <- na.omit(data)
+
+data %>%
+  group_by(sex) %>%
+  summarise (n = n()) %>%
+  mutate(freq = n / sum(n))
+```
+
+In total, 1300 people chose to respond to this question, of which 578 were male and 722 who were female. 
+
+```{r}
+data %>%
+  group_by(sex, fear) %>%
+  summarise (n = n()) %>%
+  mutate(freq = n / sum(n))
+
+mosaicplot(prop.table(table(data),1), main = 'Sex vs Fear of Nightly Neighborhood Walks')
+```
+
+The plot and data show the proportion of males and females who responded about whether they fear walking around the neighborhood at night or not. From the plot, there seems to be a significant difference in the proportion of men who feared walking at night versus those that did not fear. 79% of male respondents did not fear walking in their neighborhoods at night versus 20.9% of men who did fear. By comparison, female respondents were more evenly split with 44.8% fearing walking in the neighborhood at night versus 55.1% not fearing walking around the neighborhood at night. From this analysis it appears that there is an association between gender and whether one is more fearful of walking around the neighborhood at night though further analysis will be required to determine statistical significance.
+
+Now, we will use statistical inference to know if a larger proportion of women than men, fear walking around their neighborhoods at night for the whole population in 2012.
+
+* * *
+
+## Part 4: Inference
+
+#### Introduction
+
+For this analysis, we will use a hypothesis test and a confidence interval parameter of interest which is the difference of two proportions. This is because we are comparing two categorical variables of two levels each. 
+
+#### Hypothesis
+
+H0: For our question, the null hypotheses is that there’s no difference in the proportions of men and women that fear walking around their neighborhood at night.
+
+HA: The alternative hypotheses is that a larger proportion of women, than men, fear walking around their neighborhood at night.
+
+To test H0, the observed proportions in the table (the original data) are compared with the expected proportions and if the observed proportions are far from the expected proportions, it is evidence to reject H0 in favor of HA.
+
+#### Conditions
+
+We now check the conditions for inference to determine a difference in proportion.
+
+1. Each proportion follows a normal model.
+2. The two samples are independent of each other.
+
+In order to follow a nearly normal model,
+
+* The sample observations must be independent, this can be assumed to be true as the observations were sampled using random selection from a large population.
+* Success-failure condition: We should expect to see at-least 10 succeses and 10 failures in our sample. If we assume that a success means fearing walking around the neighborhood at night; according the 2012 gss data, both men and women have more than 10 samples for Yes and No. So this condition holds true.
+
+The conditions for inference on a difference in proportion holds true because we’ve determined each proportion to follow a normal model. The two samples are independent from each other because of random sampling from a large population.
+
+#### Methods
+
+We’ll examine the difference in proportions of men and women who fear walking around their neighborhood at night:
+
+a. Calculating the p-value for the hypotheses that a larger proportion of women fear walking around their neighborhood, given our sample. Then decide if the p-value is small enough to reject the null hypotheses in favor of the alternative.
+
+b. Checking a 95% confidence interval for the difference in the proportions, and seeing if it contains 0 which indicates that there is no difference.
+
+#### P-Value
+
+```{r}
+inference(x= sex,y = fear, data = data, statistic = "proportion", type = "ht", null = 0 ,method = "theoretical",alternative="Less", success = "Yes")
+```
+
+The p-value is less than 5%, so we reject the null hypotheses and conclude that for our population in general, a larger proportion of women fear walking around their neighborhood at night, compared to men.
+
+#### Confidence Interval
+
+We need to construct a Confidence Interval for the Hypothesis Test in order to check the results from the method of the P-Value Test. 
+
+```{r}
+inference(x= sex, y = fear, data = data, statistic = "proportion", type = "ci",method = "theoretical", success = "Yes")
+```
+
+The 95% confidence interval for the difference between proportions of males and females that fear walking around their neighborhood at night is between -0.2886 to -0.1903. Thus the difference in proportion exists and results are statistically significant. The results for both tests agree, and we can propose that a greater proportion of women, than males, fear walking around their neighborhood, and steps can be taken to provide better safety and education programs for both men and women.
+
+### References: 
+
+Smith, Tom W, Peter Marsden, Michael Hout, and Jibum Kim. General Social Surveys, 1972-2014 [machine-readable data file] /Principal Investigator, Tom W. Smith; Co-Principal Investigator, Peter V. Marsden; Co-Principal Investigator, Michael Hout; Sponsored by National Science Foundation. --NORC ed.-- Chicago: NORC at the University of Chiago [producer]; Storrs, CT: The Roper Center for Public Opinion Research, University of Connecticut [distributor], 2015.
+
+1 data file (57,061 logical records) + 1 codebook (3,567p.). -- (National Data Program for the Social Sciences, No. 22).
+
+
+National Science Foundation, 2007. www.nsf.gov/pubs/2007/nsf0748/nsf0748_3.pdf.
+
