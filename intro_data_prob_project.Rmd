@@ -1,0 +1,210 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+* * *
+
+## Part 1: Data
+
+The Behavioral Risk Factor Surveillance System (BRFSS) consists of a questionnaire that is administered throughout the year which is updated yearly. The survey monitors behavioral and health related risk factors in the population consisting 18+ years of age who live in the United States. This system consists of a core survey with optional segments that states then choose to administer as they see fit and add to in minor ways. Thus, data can be collected on a state by state basis which allows both the state to obtain particular data sets while enabling comparisons between states in the core content of the questionnaire. The landline telephone and cellular based surveys are administered slightly differently. The landline survey is conducted through a randomly selected adult in the household while the cellular survey applies directly to the owner of that phone. This has a potentially deep impact on the generalizability of the survey results as the tests then have to be sampled differently from one another while also compensating for errors. The BRFSS is primarily a landline Telephone based Survey and beginning in 2014 did it begin the full eligibility of any adult of 18 years or more to participate regardless of the landline usage. This inevitably caused some overlap between the people who do use both the Landline services as well as a cellular device. In turn, the overlap can cause some potential for minor errors in the data which in turn can harm generalizability. To compensate this error potential, the survey utilizes “raking” to weight the data so that minority representation is taken into account and the known demographics of the population better match the sample distributions. A sample in the survey is at least determined through random sampling; the system chooses a random telephone number and dials it. The BRFSS requires that all administrating groups must adhere to a similar design. This is a direct usage of random sampling and is vital for the data to be generalizable to the population at large. However, most administrating groups opted for a method of a disproportionate stratified sample with only a handful used simple-random sampling. Once again, the usage of stratification ensures that each subgroup which consists of “high density” and “medium density” strata of household landline numbers number, is able to represent the demographic properly which in turn promotes the generalizability of the system. Cellular Telephones surveys are able to operate more through random sampling within particular procedures. BRFSS however must compensate for the potential of nonresponses and thus utilizes weighting through a variety of variables such as an assigned weight of the stratum, number of landline phones in said stratum and the number of adults. Without doing this, the survey makes a wrongful assumption and thus cannot generalize the results in most cases. Naturally, this had to be adjusted somewhat for the potential of overlaps with cellphone users through a compositing factor that multiplied the design weight calculated previously. Weights are then trimmed to reduce outcome estimates in high and low values in weights and once again improve generalizability. Largely, the survey seems to be very much concerned with generalizability rather than any causal relationships though questions on the survey can potentially lean into correlation though there are not really any form of random assignments or explanatory variables that can definitively prove causality. The amount of compensation for most demographic based errors is key to how this survey can be reliable in its implementation and results that can then be derived for various medical purposes. And for most intents and purposes, the potential biases in the data collection mostly stem from the specific data collection methods and their individual questions of the states as as well as how it does not specifically target anyone below 18, meaning seperate surveys would be required in those cases.
+
+The data set includes information such as whether the interviewee has asthma, diabetes, marital status, number of children, level of education, income and many others which are weighted accordingly. In total, the data set consists of 491,775 observations of 330 different variables. 
+
+Sources
+
+United States, Centers for Disease Control and Prevention (CDC). (2016, July). Overview: BRFSS 2015. Retrieved July 13, 2017, from https://www.cdc.gov/brfss/annual_data/2015/pdf/overview_2015.pdf
+
+Centers for Disease Control and Prevention (CDC): Behavioral Risk Factor Surveillance System Survey Data. U.S. Department of Health and Human Services, Centers for Disease Control and Prevention, Atlanta, Georgia; 2013. http://www.cdc.gov/brfss
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+
+Generally, does sleep and age have a relationship with concentration and memory?
+
+This Question Involves the Variables:
+
+sleptim1: How Much Time Do You Sleep
+
+_ageg5yr: Reported Age In Five-Year Age Categories Calculated Variable
+
+decide: Difficulty Concentrating Or Remembering
+
+This particular question is incredibly useful to students as well as workers in general, as evaluating the harmful effects on sleep in regards to their potential performance is a valuable reference. 
+
+**Research quesion 2:**
+
+Generally, how is the frequency of doctor visits impacted by the coverage of insurance or Medicare?
+
+This Question Involves the Variables:
+
+hlthpln1: Have Any Health Care Coverage
+
+medicare: Do You Have Medicare?
+
+drvisits: Doctor Visits Past 12 Months
+
+This particular question is important to policy in regards to health insurance and health safety workers as fewer doctor visits can potentially indicate higher health costs in the long term which can be financially devastating as well as cause more health risks in the population. In addition, the recent concern about health insurance politically in the United States makes this a pertinent topic. 
+
+**Research quesion 3:** 
+
+How does the income level of an individual impact their mental health?
+
+This Question Involves the Variables:
+
+income2: Income Level
+
+misnervs: How Often Feel Nervous Past 30 Days
+
+misdeprd: How Often Feel Depressed Past 30 Days
+
+menthlth: Number Of Days Mental Health Not Good
+
+This particular question is interesting because it is relevant to people of all income levels. People have differing circumstances but the impact that income has plays a significant role in behavior and expectations of oneself, thus potentially providing stronger reasons to support the less fortunate both socially and politically. 
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1:**
+
+```{r}
+brfss_demo <- brfss2013 %>%
+    filter(!is.na(sleptim1), !is.na(X_ageg5yr),!is.na(decide)) %>%
+    mutate(sleptim1_scaled = as.numeric(scale(sleptim1))) %>%
+    select(sleptim1, decide, X_ageg5yr,sleptim1_scaled)
+
+mean(brfss_demo$sleptim1)
+```
+
+The Average of Sleeptimes is between 7 and 8 hours irrespective of whether the person has concentration issues or not.
+
+```{r}
+
+ggplot(brfss_demo, aes(sleptim1, ..density..,fill=decide))+geom_histogram(binwidth = 1, position= position_dodge(width = 0.75))
+```
+
+According to the graph, those who sleep below the sleeping average increasingly suffer from concentration issues.
+
+```{r}
+ggplot(brfss_demo, aes(X_ageg5yr,fill=decide))+geom_bar(position= position_dodge(width = 0.75))
+```
+
+Age by itself does not appear to have a strong relation with concentration and memory issues, though issues of concentration seems to increase around age 45-55 before decreasing.
+
+```{r}
+brfss_demo_sum <- brfss_demo %>%
+    group_by(X_ageg5yr, decide) %>%
+    summarise(n=n(), sleep_mean = mean(sleptim1), sleep_scaled = mean(sleptim1_scaled))
+
+View(brfss_demo_sum)
+
+ggplot(data= brfss_demo_sum, aes(decide, X_ageg5yr)) + geom_tile(aes(fill = sleep_mean)) + scale_fill_gradient(low= "red", high= "green") + geom_text(aes(label = round(sleep_mean,2)))
+```
+
+Those who suffer concentration issues appear to sleep less in almost every case than those who do not. The general age where people appear to sleep least is 30-34 when they have concentration problems and 35-49 when they do not. Generally, it seems that sleeping times takes precedence over age when determining if a person has concentration issues though further research will be needed for confirmation of whether these variables form causality.
+
+**Research quesion 2:**
+
+```{r}
+brfss2013 %>% 
+  filter(!(is.na(drvisits))) %>%
+  summarise(drmean = mean(drvisits), drmedian = median(drvisits), drsd = sd(drvisits), 
+            drmin = min(drvisits), drmax = max(drvisits))
+```
+
+The mean is larger than the median, indicating that the data is right skewed. The average amount of visits to the doctor yearly is about 5 times.
+
+```{r}
+brfss_demo2 <- brfss2013 %>%
+    filter(!is.na(drvisits), !is.na(hlthpln1),!is.na(medicare), medicare == "No") %>%
+    mutate(drvisits_scaled = as.numeric(scale(drvisits))) %>%
+    select(drvisits, hlthpln1, medicare,drvisits_scaled)
+
+ggplot(brfss_demo2, aes(drvisits, ..density..,fill=hlthpln1))+geom_histogram(binwidth = 2, position= position_dodge(width = 1.5))
+```
+
+Without health insurance or Medicare, the amount of people who did not visit the doctor in the past year greatly exceeded those who had insurance and did not visit the doctor. In addition, when the number of visits rose, the number of those who had insurance and went always exceeded those who did not have health insurance and went except for an outlier at around 75 visits. 
+
+```{r}
+brfss_demo3 <- brfss2013 %>%
+    filter(!is.na(drvisits), !is.na(hlthpln1),!is.na(medicare), hlthpln1 == "No") %>%
+    mutate(drvisits_scaled = as.numeric(scale(drvisits))) %>%
+    select(drvisits, hlthpln1, medicare,drvisits_scaled)
+
+ggplot(brfss_demo3, aes(drvisits, ..density..,fill= medicare))+geom_histogram(binwidth = 2, position= position_dodge(width = 1.5))
+```
+
+A similar situation occurs for Medicare, the number of people who did not go to the doctor without health care was always greater than the number who did not go who did. And the reverse was true as the number of visits increased. Thus, generally, this indicates that without insurance or Medicare, people go to the doctor less often than if they did have insurance. However, it cannot be shown whether the lack of insurance is the cause of people not wishing to go to the doctor as often thus further inquiry will be required. 
+
+**Research quesion 3:**
+
+```{r}
+brfss2013 %>% 
+  filter(!(is.na(menthlth))) %>%
+  summarise(menmean = mean(menthlth), menmedian = median(menthlth), mensd = sd(menthlth), 
+            menmin = min(menthlth), menmax = max(menthlth))
+```
+
+The Average number of day whom people felt that their mental health was not good is around 3 days. The Median is less than the mean, indicating that the data on the numbers of mental health days is right skewed. 
+
+```{r}
+brfss2013 %>% 
+  filter(!is.na(menthlth), !is.na(income2)) %>%
+  group_by(income2, menthlth) %>%
+  ggplot(aes(x=income2, y=menthlth)) +
+  geom_bar(stat="identity")
+```
+
+Income does not seem to have much influence on the number of days that people felt that their mental health was not good. 
+
+```{r}
+brfss_demo3 <- brfss2013 %>%
+    filter(!is.na(income2), !is.na(misdeprd),!is.na(misnervs),!is.na(menthlth)) %>%
+    select(income2, misdeprd, misnervs, menthlth)
+
+brfss_demo3$income2  <- as.factor(brfss_demo3$income2)
+brfss_demo3$misnervs <- as.factor(brfss_demo3$misnervs)
+ggplot(brfss_demo3, aes(x=income2, y = (..count..)/sum(..count..), fill = misnervs)) +
+  geom_bar(position="dodge")
+```
+
+The highest bracket of income had by the most number of people who felt that they never had issues with nervousness. As the brackets decreased in income, so did then number of people who felt that they did not have issues with neverousness. The number of those that felt some nervousness also decreased across the income brackets. However, the number of those that felt nervousness all the time actually increased as the income brackets decreased.
+
+```{r}
+brfss_demo3 <- brfss2013 %>%
+    filter(!is.na(income2), !is.na(misdeprd),!is.na(misnervs),!is.na(menthlth)) %>%
+    select(income2, misdeprd, misnervs, menthlth)
+
+brfss_demo3$income2  <- as.factor(brfss_demo3$income2)
+brfss_demo3$misdeprd <- as.factor(brfss_demo3$misdeprd)
+ggplot(brfss_demo3, aes(x=income2, y = (..count..)/sum(..count..), fill = misdeprd)) +
+  geom_bar(position="dodge")
+```
+
+Similar to that of nervousness, the highest bracket of income had by the most number of people who felt that they never had issues with depression in the last 30 days and this number decreased as the income brackets fell. SIn addition, the number of people who felt that they suffered depression all the time increased over the 30 days. However, the gap between the having no depression and a little depression but much larger than the same gap for nervousness. It seems that generally, those at higher levels of income do appear to benefit in regard to their mental health specifically in regards to depression more than nervousness. While the number of days that people felt that their mental health was varied over the income brackets, number at the lowest income level generally saw an increase in suffering depression and nervousness. There is no provable causal link between income and mental health in this data so further tests will be needed. But generally, income does provide a tangible benefit in this regard.
